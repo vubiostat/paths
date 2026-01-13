@@ -201,6 +201,12 @@ extract_ahrf_data <- function(year, dir)
 #   return(inputs)
 # }
 
+
+  ##############################################################################
+ #
+#
+# Transform data into downloadable csv file
+#
 transform_data <- function(parsed_trigger, dir)
 {
   if (parsed_trigger$sdh_etl_complete == "2") {
@@ -290,6 +296,17 @@ transform_data <- function(parsed_trigger, dir)
   }
 }
 
+load_data <- function(dir, request)
+{
+  # Call all the functions needed to create bundle?
+}
+
+
+  ##############################################################################
+ #
+#
+# Create the raw email
+#
 
 # FIXME: Include selections
 #   <p>Selections:</p>
@@ -320,10 +337,15 @@ This email was sent automatically. For any issues or queries, please contact Jus
     cat()
 }
 
+  ##############################################################################
+ #
+#
+# Main loop, load the data and create the email
+#
 
 dir <- tempdir()
 load_data(dir, request)
-cat(create_email(request, dir))
+create_email(request, dir)
 unlink(dir)
 
 # FIXME: The code seems to both check if the request is complete and writes that back
