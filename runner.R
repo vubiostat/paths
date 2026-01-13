@@ -32,8 +32,6 @@ library(knitr)   # Format an html email
 # Parse request and startup
 #
 # TO RUN LOCALLY, triggers are received to script in JSON
-# Sys.setenv(REDCAP_DATA_TRIGGER='{"record":"2","project_id":"123456","instrument":"demographics","instrument_complete":"2"}')
-
 # Sys.setenv(REDCAP_DATA_TRIGGER='{"record":"2","project_id":"223502","instrument":"SDH ETL","instrument_complete":"2"}')
 ################################################################################
 
@@ -63,11 +61,9 @@ request   <- exportRecordsTyped(rcon, records=get_record_id())
 
 if(request$sdh_etl_complete != 'Complete')
 {
-  logM("Request number ", request$record, " is incomplete. Processing skipped.")
+  logM("Request number ", request$request_number, " is incomplete. Processing skipped.")
   quit(save="no")
 }
-
-
 
   ##############################################################################
  #
@@ -193,24 +189,6 @@ extract_ahrf_data <- function(year, dir)
   logStop(message("Unable to extract the ", year, " Area Health Resources Files."))
 }
 
-# parse_trigger <- function(data_string) {
-#   message("Parsing the HTTP POST request...")
-#   url_format <- paste0("http://placeholder.domain?", data_string)
-#   parsed_trigger <- httr::parse_url(url_format)$query
-#   return(parsed_trigger)
-# }
-#
-# fetch_inputs <- function(redcap_url, project_id, record) {
-#   message("Fetching user inputs from REDCap...")
-#   api_token <- Sys.getenv(paste0("api_key_", project_id))
-#   inputs <- redcap_read(redcap_uri = redcap_url,
-#                         token = api_token,
-#                         records = record,
-#                         raw_or_label = "label")$data
-#   return(inputs)
-# }
-
-
   ##############################################################################
  #
 #
@@ -285,15 +263,10 @@ transform_data <- function(request, dir)
       return(file_path)
     }
 
-    logM("Finished transforming data for request number ", request$record)
+    logM("Finished transforming data for request number ", request$request_number)
   }, error = function(e) {
-    logStop("Error transforming data for request number ", request$record)
+    logStop("Error transforming data for request number ", request$request_number)
   })
-}
-
-load_data <- function(dir, request)
-{
-  # Call all the functions needed to create bundle?
 }
 
 
@@ -337,36 +310,8 @@ This email was sent automatically. For any issues or queries, please contact Jus
 #
 # Main loop, load the data and create the email
 #
-
 dir <- tempfile(pattern="paths_")
 if(!dir.create(dir)) logStop("Unable to create directory", dir)
-load_data(dir, request)
-create_email(request, dir)
-unlink(dir)
-
-# FIXME: The code seems to both check if the request is complete and writes that back
-# request$sdh_etl_complete <- "Complete"
-# request <- request[,-which(names(request) == 'sdh_etl_timestamp')]
-# # FIXME: What to do about failure here?
-# importRecords(rcon, castForImport(request, rcon))
-
-#* @post /redcap-trigger
-#* @get /redcap-trigger
-#
-# function(req) {
-#   if (req$REQUEST_METHOD == "GET") {
-#     return(message = "The URL is valid.")
-#   } else if (req$REQUEST_METHOD == "POST") {
-#     tryCatch({
-#       message("Received the HTTP POST request.")
-#       parsed_trigger <- parse_trigger(req$postBody)
-#       dir <- file.path(here(), sprintf("request-number-%s", parsed_trigger$record))
-#       dir.create(dir, showWarnings = FALSE, recursive = TRUE)
-#       outputs <- transform_data(parsed_trigger, dir)
-#       message("Finished processing data for request number ", parsed_trigger$record)
-#       create_email(outputs$title, outputs$last_name, outputs$email_address, outputs$file_path)
-#     }, error = function(e) {
-#       message("Error processing data for request number ", parsed_trigger$record)
-#     })
-#   }
-# }
+final <- transform_data(dir, request)
+create_email(request, final)
+unlink(dir, recursive=TRUE)
