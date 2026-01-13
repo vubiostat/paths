@@ -9,6 +9,7 @@ library(lubridate)
 
 # Pull from REDCap
 library(redcapAPI)
+library(jsonlite)
 
 # Pulls from Other Sources
 library(sf)    # WARNING sysadmin: spatial processing package, big install
@@ -18,9 +19,12 @@ library(sf)    # WARNING sysadmin: spatial processing package, big install
                # installed from remotes::install_github("r-quantities/units")
 library(readxl)
 library(httr2) # httr2 has exponential backoff
-library(blastula) # RDCOMClient is Windows only
+
 library(haven)
-library(jsonlite)
+
+# Email prep
+library(emayili) # RDCOMClient is Windows only
+library(knitr)
 
   ##############################################################################
  #
@@ -286,30 +290,34 @@ transform_data <- function(parsed_trigger, dir)
   }
 }
 
-create_email <- function(title, last_name, email_address, file_path)
-{
-  email$Attachments()$Add(file_path)
-  email[["To"]] <- email_address
-  email[["Subject"]] <- paste0("The dataset you requested is ready!")
-  email[["HTMLBody"]] <- paste0("<html><head><style>
-  body {font-family: Verdana, sans-serif; font-size: 10pt;}
-  .name {margin: 0px; padding-bottom: 3pt;}
-  .affiliation {font-size: 9pt; margin: 0px; padding: 0px;}
-  .disclaimer {font-size: 9pt; margin: 0px; padding: 0px;}
-  hr {height: 1px; background-color: #A9A9A9; border:none;}
-  </style></head>
-  <body>
-  <p><b>Health Indicators for HIV/AIDS Research</b></p>
-  <p>Dear ", paste(title, last_name), ",</p>
-  <p>Your requested dataset has been successfully compiled and is attached to this email.</p>
-  <p>Selections:</p>
-  <p><ul><li>Administrative unit:</li><li>Vintage year:</li><li>Health indicators:</li></ul></p>
-  <hr>
-  <p class='disclaimer'><span style='color: rgb(127, 127, 127);'>🤖 This email was sent automatically. For any issues or queries, please contact Justin Amarin at </span><a href='mailto:justin.amarin@vumc.org' target='_blank' style='color: rgb(127, 127, 127);'><u>justin.amarin@vumc.org</u></a><span style='color: rgb(127, 127, 127);'>.</span></p>
-  </body>
-  </html>")
 
-  email$Send()
+# FIXME: Include selections
+#   <p>Selections:</p>
+#<p><ul><li>Administrative unit:</li><li>Vintage year:</li><li>Health indicators:</li></ul></p>
+create_email <- function(request, file_path)
+{
+  body <-
+    "# Health Indicators for HIV/AIDS Research
+
+Dear, %s %s,
+
+Your requested dataset has been successfully compiled and is attached to this email.
+
+This email was sent automatically. For any issues or queries, please contact Justin Amarin [<justin.amarin@vumc.org>](mailto:justin.amarin@vumc.org).
+"                                             |>
+    sprintf(request$title, request$last_name) |>
+    knit2html(text = _)
+
+  envelope()                         |>
+    from("noreply@vumc.org")         |>
+    to(request$email)                |>
+    subject("PATHS Dataset Request") |>
+    text(body)                       |>
+    attachment(
+      file_path,
+      type="application/zip")        |>
+    as.character()                   |>
+    cat()
 }
 
 
