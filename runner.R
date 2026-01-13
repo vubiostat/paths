@@ -18,13 +18,20 @@ library(sf)    # WARNING sysadmin: spatial processing package, big install
                # installed from remotes::install_github("r-quantities/units")
 library(readxl)
 library(httr2) # httr2 has exponential backoff
-library(RDCOMClient)
+library(blastula) # RDCOMClient is Windows only
 library(haven)
 library(jsonlite)
 
-# FIXME: This library shouldn't be used in production
-library(here)
+  ##############################################################################
+ #
+#
+# Parse request and startup
+#
+# TO RUN LOCALLY, triggers are received to script in JSON
+# Sys.setenv(REDCAP_DATA_TRIGGER='{"record":"2","project_id":"123456","instrument":"demographics","instrument_complete":"2"}')
+################################################################################
 
+# Helper function
 logM <- function(...)
 {
   logEvent("INFO", call=.callFromPackage('redcapAPI'), message=paste(...))
@@ -35,9 +42,6 @@ unlockREDCap(c(rcon  = 'paths_data_builder'),
              keyring = 'API_KEYs',
              envir   = 1,
              url     = 'https://redcap.vumc.org/api/')
-
-# TO RUN LOCALLY, triggers are received to script in JSON
-# Sys.setenv(REDCAP_DATA_TRIGGER='{"record":"2","project_id":"123456","instrument":"demographics","instrument_complete":"2"}')
 
 get_record_id <- function()
 {
@@ -52,6 +56,11 @@ get_record_id <- function()
 request   <- exportRecordsTyped(rcon, records=get_record_id())
 
 
+  ##############################################################################
+ #
+#
+# Download requested data locally and unpack
+#
 download_tiger_files <- function(year, dir)
 {
   logM("Downloading ", year, " TIGER/Line shapefiles.")
@@ -61,7 +70,7 @@ download_tiger_files <- function(year, dir)
 
   response <-
     request(url) |>
-    req_retry(max_tries = 5) |>
+    req_retry(max_tries = 5, retry_on_failure = TRUE) |>
     req_perform(file.path(dir, "counties.zip"))
 
   response <- GET(url, write_disk(zip_file, overwrite = TRUE))
@@ -86,49 +95,72 @@ process_tiger_files <- function(dir)
   counties
 }
 
-extract_counties <- function(year)
+extract_counties <- function(year, dir)
 {
   download_tiger_files(year, dir)
   counties <- process_tiger_files(dir)
   unlink(dir, recursive = FALSE)
-  return(counties)
+
+  counties
 }
 
 extract_chr_data <- function(year, dir)
 {
-  logM("Extracting ", year, " County Health Rankings National Data...")
+  logM("Extracting ", year, " County Health Rankings National Data.")
   base_url <- "https://www.countyhealthrankings.org/sites/default/files/media/document/analytic_data"
+  # This tries multiple possible locations
   url_patterns <- c(paste0(base_url, year, ".csv"),
                     paste0(base_url, year, "_0.csv"),
                     paste0(str_remove(base_url, "media/document/"), year, ".csv"),
                     paste0(str_remove(base_url, "media/document/"), year, "_0.csv"))
   csv_file <- file.path(dir, sprintf("chr_%s.csv", year))
-  for (url in url_patterns) {
-    response <- GET(url, write_disk(csv_file, overwrite = TRUE))
-    if (status_code(response) == 200) {
-      message(year, " County Health Rankings National Data extracted.")
-      chr_data <- read_csv(csv_file, show_col_types = F, skip = 1) %>%
-        select(-c(statecode, countycode)) %>%
-        rename(GEOID = fipscode) %>%
-        mutate(chr_completeness = 1)
-      return(chr_data)
-      }
+  for (url in url_patterns)
+  {
+    response <-
+      request(url)                                      |>
+      req_retry(max_tries = 5, retry_on_failure = TRUE) |>
+      req_perform(csv_file)
+
+    if (resp_status(response) == 200)
+    {
+      logM(year, " County Health Rankings National Data extracted.")
+
+      return(
+        read_csv(csv_file, show_col_types = FALSE, skip = 1) |>
+          select(-c(statecode, countycode))                  |>
+          rename(GEOID = fipscode)                           |>
+          mutate(chr_completeness = 1)
+      )
     }
-  stop(message("Unable to extract the ", year, " County Health Rankings National Data..."))
+  }
+
+  logStop("Unabled to extract the ", year, " County Health Rankings National Data.")
 }
 
-extract_ahrf_data <- function(year, dir) {
+extract_ahrf_data <- function(year, dir)
+{
+  logM("Attempting to extract the ", year, " Area Health Resources Files.")
+
+  # FIXME: What is this? Shouldn't this be outside this function?
   year <- str_replace(year, "_", "-")
-  message("Attempting to extract the ", year, " Area Health Resources Files...")
+
   base_url <- "https://data.hrsa.gov/DataDownload/AHRF/AHRF_"
+
+  # Once again multiple ways it's stored to attempt
   url_patterns <- c(
     paste0(base_url, "SAS_", year, ".zip"),
     paste0(base_url, year, "_SAS.zip")
   )
   zip_file <- file.path(dir, sprintf("ahrf_%s.zip", year))
-  for (url in url_patterns) {
-    response <- GET(url, write_disk(zip_file, overwrite = TRUE))
-    if (status_code(response) == 200) {
+  for (url in url_patterns)
+  {
+    response <-
+      request(url)                                      |>
+      req_retry(max_tries = 5, retry_on_failure = TRUE) |>
+      req_perform(zip_file)
+
+    if (resp_status(response) == 200)
+    {
       subdir <- paste0(dir, "/ahrf_", year)
       dir.create(subdir, showWarnings = FALSE, recursive = TRUE)
       unzip(zip_file, exdir = subdir)
@@ -138,34 +170,35 @@ extract_ahrf_data <- function(year, dir) {
         full.names = TRUE,
         recursive = TRUE
       )
-      ahrf_data <- read_sas(sas_file) %>%
-        rename(GEOID = f00002) %>%
+      ahrf_data <- read_sas(sas_file) |>
+        rename(GEOID = f00002)        |>
         mutate(ahrf_completeness = 1)
-      message(year, " Area Health Resources Files extracted.")
+      logM(year, " Area Health Resources Files extracted.")
       return(ahrf_data)
     }
   }
-  stop(message("Unable to extract the ", year, " Area Health Resources Files..."))
+  logStop(message("Unable to extract the ", year, " Area Health Resources Files."))
 }
 
-parse_trigger <- function(data_string) {
-  message("Parsing the HTTP POST request...")
-  url_format <- paste0("http://placeholder.domain?", data_string)
-  parsed_trigger <- httr::parse_url(url_format)$query
-  return(parsed_trigger)
-}
+# parse_trigger <- function(data_string) {
+#   message("Parsing the HTTP POST request...")
+#   url_format <- paste0("http://placeholder.domain?", data_string)
+#   parsed_trigger <- httr::parse_url(url_format)$query
+#   return(parsed_trigger)
+# }
+#
+# fetch_inputs <- function(redcap_url, project_id, record) {
+#   message("Fetching user inputs from REDCap...")
+#   api_token <- Sys.getenv(paste0("api_key_", project_id))
+#   inputs <- redcap_read(redcap_uri = redcap_url,
+#                         token = api_token,
+#                         records = record,
+#                         raw_or_label = "label")$data
+#   return(inputs)
+# }
 
-fetch_inputs <- function(redcap_url, project_id, record) {
-  message("Fetching user inputs from REDCap...")
-  api_token <- Sys.getenv(paste0("api_key_", project_id))
-  inputs <- redcap_read(redcap_uri = redcap_url,
-                        token = api_token,
-                        records = record,
-                        raw_or_label = "label")$data
-  return(inputs)
-}
-
-transform_data <- function(parsed_trigger, dir) {
+transform_data <- function(parsed_trigger, dir)
+{
   if (parsed_trigger$sdh_etl_complete == "2") {
     inputs <- fetch_inputs(redcap_url = paste0(parsed_trigger$redcap_url, "api/"),
                            project_id = parsed_trigger$project_id,
@@ -253,9 +286,8 @@ transform_data <- function(parsed_trigger, dir) {
   }
 }
 
-load_data <- function(title, last_name, email_address, file_path) {
-  outlook <- COMCreate("Outlook.Application.16")
-  email <- outlook$CreateItem(0)
+create_email <- function(title, last_name, email_address, file_path)
+{
   email$Attachments()$Add(file_path)
   email[["To"]] <- email_address
   email[["Subject"]] <- paste0("The dataset you requested is ready!")
@@ -280,25 +312,35 @@ load_data <- function(title, last_name, email_address, file_path) {
   email$Send()
 }
 
-req <- tibble(REQUEST_METHOD = character(), postBody = character()) %>% add_row(REQUEST_METHOD = "POST", postBody = "redcap_url=https%3A%2F%2Fredcap.vumc.org%2F&project_url=https%3A%2F%2Fredcap.vumc.org%2Fredcap_v14.6.4%2Findex.php%3Fpid%3D197463&project_id=197463&username=%5Bsurvey+respondent%5D&record=1&instrument=sdh_etl&sdh_etl_complete=2")
+
+dir <- tempdir()
+load_data(dir, request)
+cat(create_email(request, dir))
+unlink(dir)
+
+# FIXME: The code seems to both check if the request is complete and writes that back
+# request$sdh_etl_complete <- "Complete"
+# request <- request[,-which(names(request) == 'sdh_etl_timestamp')]
+# # FIXME: What to do about failure here?
+# importRecords(rcon, castForImport(request, rcon))
 
 #* @post /redcap-trigger
 #* @get /redcap-trigger
-
-function(req) {
-  if (req$REQUEST_METHOD == "GET") {
-    return(message = "The URL is valid.")
-  } else if (req$REQUEST_METHOD == "POST") {
-    tryCatch({
-      message("Received the HTTP POST request.")
-      parsed_trigger <- parse_trigger(req$postBody)
-      dir <- file.path(here(), sprintf("request-number-%s", parsed_trigger$record))
-      dir.create(dir, showWarnings = FALSE, recursive = TRUE)
-      outputs <- transform_data(parsed_trigger, dir)
-      message("Finished processing data for request number ", parsed_trigger$record)
-      load_data(outputs$title, outputs$last_name, outputs$email_address, outputs$file_path)
-    }, error = function(e) {
-      message("Error processing data for request number ", parsed_trigger$record)
-    })
-  }
-}
+#
+# function(req) {
+#   if (req$REQUEST_METHOD == "GET") {
+#     return(message = "The URL is valid.")
+#   } else if (req$REQUEST_METHOD == "POST") {
+#     tryCatch({
+#       message("Received the HTTP POST request.")
+#       parsed_trigger <- parse_trigger(req$postBody)
+#       dir <- file.path(here(), sprintf("request-number-%s", parsed_trigger$record))
+#       dir.create(dir, showWarnings = FALSE, recursive = TRUE)
+#       outputs <- transform_data(parsed_trigger, dir)
+#       message("Finished processing data for request number ", parsed_trigger$record)
+#       create_email(outputs$title, outputs$last_name, outputs$email_address, outputs$file_path)
+#     }, error = function(e) {
+#       message("Error processing data for request number ", parsed_trigger$record)
+#     })
+#   }
+# }
