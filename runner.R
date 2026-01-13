@@ -8,8 +8,8 @@ library(tidyverse)
 library(lubridate)
 
 # Pull from REDCap
-library(redcapAPI)
-library(jsonlite)
+library(redcapAPI) # Read request from REDCap
+library(jsonlite)   # Read environment of request
 
 # Pulls from Other Sources
 library(sf)    # WARNING sysadmin: spatial processing package, big install
@@ -17,14 +17,14 @@ library(sf)    # WARNING sysadmin: spatial processing package, big install
                # Requires packages units, wk, s2
                # CRAN units has compile issues with later compilers and had to be
                # installed from remotes::install_github("r-quantities/units")
-library(readxl)
-library(httr2) # httr2 has exponential backoff
 
-library(haven)
+library(httr2)   # httr2 has exponential backoff
+library(readxl)  # For Excel reading/writing
+library(haven)   # FOR SPSS, Stata and SAS importation
 
 # Email prep
 library(emayili) # RDCOMClient is Windows only
-library(knitr)
+library(knitr)   # Format an html email
 
   ##############################################################################
  #
