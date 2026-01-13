@@ -97,8 +97,8 @@ process_tiger_files <- function(dir)
 {
   logM("Attempting to extract county-level identifiers...")
   shp_file <- list.files(dir, pattern = "\\.shp$", full.names = TRUE)
-  counties <- st_read(shp_file) %>%
-    select(GEOID, STATEFP, COUNTYFP, NAME, NAMELSAD) %>%
+  counties <- st_read(shp_file) |>
+    select(GEOID, STATEFP, COUNTYFP, NAME, NAMELSAD) |>
     st_drop_geometry()
   logM("County-level identifiers extracted.")
   counties
@@ -150,7 +150,7 @@ extract_ahrf_data <- function(year, dir)
 {
   logM("Attempting to extract the ", year, " Area Health Resources Files.")
 
-  # FIXME: What is this? Shouldn't this be outside this function?
+  # This turns years like "2021_2022" into "2021-2022"
   year <- str_replace(year, "_", "-")
 
   base_url <- "https://data.hrsa.gov/DataDownload/AHRF/AHRF_"
@@ -198,55 +198,55 @@ transform_data <- function(request, dir)
 {
   tryCatch({
     if (request$admin_unit == "County or equivalent") {
-      counties_data <- extract_counties(request$year_vintage) %>%
-        mutate(year_vintage = request$year_vintage, year_measure = NA_integer_) %>%
+      counties_data <- extract_counties(request$year_vintage) |>
+        mutate(year_vintage = request$year_vintage, year_measure = NA_integer_) |>
         relocate(year_vintage, year_measure, .before = 1)
-      compiled_data <- counties_data %>% filter(!is.na(year_measure))
+      compiled_data <- counties_data |> filter(!is.na(year_measure))
 
       if(request$data_sources___chr == "Checked") {
-        years <- request %>%
-          select(starts_with("year_chr___")) %>%
+        years <- request |>
+          select(starts_with("year_chr___")) |>
           pivot_longer(cols = everything(),
                        names_to = "year_chr",
-                       values_to = "value") %>%
-          filter(value == "Checked") %>%
-          pull(year_chr) %>%
+                       values_to = "value") |>
+          filter(value == "Checked") |>
+          pull(year_chr) |>
           str_remove(., "year_chr___")
 
         for (year in years) {
           chr_data <- extract_chr_data(year, dir)
           if (year %in% compiled_data$year_measure) {
-            compiled_data <- compiled_data %>%
-              left_join(chr_data %>% mutate(year_measure = year), by = join_by(year_measure, GEOID))
+            compiled_data <- compiled_data |>
+              left_join(chr_data |> mutate(year_measure = year), by = join_by(year_measure, GEOID))
           } else {
-            compiled_data <- compiled_data %>%
-              bind_rows(counties_data %>%
-                          mutate(year_measure = as.numeric(year)) %>%
+            compiled_data <- compiled_data |>
+              bind_rows(counties_data |>
+                          mutate(year_measure = as.numeric(year)) |>
                           left_join(chr_data, by = join_by(GEOID)))
           }
         }
       }
 
       if(request$data_sources___ahrf == "Checked") {
-        years <- request %>%
-          select(starts_with("year_ahrf___")) %>%
+        years <- request |>
+          select(starts_with("year_ahrf___")) |>
           pivot_longer(cols = everything(),
                        names_to = "year_ahrf",
-                       values_to = "value") %>%
-          filter(value == "Checked") %>%
-          pull(year_ahrf) %>%
+                       values_to = "value") |>
+          filter(value == "Checked") |>
+          pull(year_ahrf) |>
           str_remove(., "year_ahrf___")
 
         for (year in years) {
           ahrf_data <- extract_ahrf_data(year, dir)
-          year_simple <- year %>% str_sub(-4)
+          year_simple <- year |> str_sub(-4)
           if (year_simple %in% compiled_data$year_measure) {
-            compiled_data <- compiled_data %>%
-              left_join(ahrf_data %>% mutate(year_measure = year_simple), by = join_by(year_measure, GEOID))
+            compiled_data <- compiled_data |>
+              left_join(ahrf_data |> mutate(year_measure = year_simple), by = join_by(year_measure, GEOID))
           } else {
-            compiled_data <- compiled_data %>%
-              bind_rows(counties_data %>%
-                          mutate(year_measure = as.numeric(year_simple)) %>%
+            compiled_data <- compiled_data |>
+              bind_rows(counties_data |>
+                          mutate(year_measure = as.numeric(year_simple)) |>
                           left_join(chr_data, by = join_by(GEOID)))
           }
         }
