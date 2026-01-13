@@ -1,7 +1,7 @@
 
 # Suppress Output when loading libraries
 
-# library <- function(...) suppressPackageStartupMessages(library(...))
+library <- function(...) suppressPackageStartupMessages(base::library(...))
 
 # Data Manipulation
 library(tidyverse)
