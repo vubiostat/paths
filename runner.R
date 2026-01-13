@@ -148,10 +148,12 @@ extract_chr_data <- function(year, dir)
       logM(year, " County Health Rankings National Data extracted.")
 
       return(
-        read_csv(csv_file, show_col_types = FALSE, skip = 1) |>
-          select(-c(statecode, countycode))                  |>
-          rename(GEOID = fipscode)                           |>
+        suppressWarnings(
+          read_csv(csv_file, show_col_types = FALSE, skip = 1) |>
+          select(-c(statecode, countycode))                    |>
+          rename(GEOID = fipscode)                             |>
           mutate(chr_completeness = 1)
+        )
       )
     }
   }
@@ -324,7 +326,7 @@ This email was sent automatically. For any issues or queries, please contact Jus
 # Main loop, load the data and create the email
 #
 dir <- tempfile(pattern="paths_")
-if(!dir.create(dir)) logStop("Unable to create directory", dir)
+if(!dir.create(dir, showWarnings=FALSE)) logStop("Unable to create directory", dir)
 on.exit(unlink(dir, recursive=TRUE))
 final <- transform_data(dir, request)
 create_email(request, final)
