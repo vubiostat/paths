@@ -61,6 +61,13 @@ get_record_id <- function()
 
 request   <- exportRecordsTyped(rcon, records=get_record_id())
 
+if(request$sdh_etl_complete != 'Complete')
+{
+  logM("Request number ", request$record, " is incomplete. Processing skipped.")
+  quit(save="no")
+}
+
+
 
   ##############################################################################
  #
@@ -192,7 +199,7 @@ extract_ahrf_data <- function(year, dir)
 #   parsed_trigger <- httr::parse_url(url_format)$query
 #   return(parsed_trigger)
 # }
-# 
+#
 # fetch_inputs <- function(redcap_url, project_id, record) {
 #   message("Fetching user inputs from REDCap...")
 #   api_token <- Sys.getenv(paste0("api_key_", project_id))
@@ -211,92 +218,77 @@ extract_ahrf_data <- function(year, dir)
 #
 transform_data <- function(dir)
 {
-  if (request$sdh_etl_complete == "Complete") {
-    # inputs <- fetch_inputs(redcap_url = paste0(parsed_trigger$redcap_url, "api/"),
-    #                        project_id = parsed_trigger$project_id,
-    #                        record = parsed_trigger$record)
-    
-    tryCatch({
-      if (request$admin_unit == "County or equivalent") {
-        counties_data <- extract_counties(request$year_vintage) %>%
-          mutate(year_vintage = request$year_vintage, year_measure = NA_integer_) %>%
-          relocate(year_vintage, year_measure, .before = 1)
-        compiled_data <- counties_data %>% filter(!is.na(year_measure))
+  tryCatch({
+    if (request$admin_unit == "County or equivalent") {
+      counties_data <- extract_counties(request$year_vintage) %>%
+        mutate(year_vintage = request$year_vintage, year_measure = NA_integer_) %>%
+        relocate(year_vintage, year_measure, .before = 1)
+      compiled_data <- counties_data %>% filter(!is.na(year_measure))
 
-        if(request$data_sources___chr == "Checked") {
-          years <- request %>%
-            select(starts_with("year_chr___")) %>%
-            pivot_longer(cols = everything(),
-                         names_to = "year_chr",
-                         values_to = "value") %>%
-            filter(value == "Checked") %>%
-            pull(year_chr) %>%
-            str_remove(., "year_chr___")
+      if(request$data_sources___chr == "Checked") {
+        years <- request %>%
+          select(starts_with("year_chr___")) %>%
+          pivot_longer(cols = everything(),
+                       names_to = "year_chr",
+                       values_to = "value") %>%
+          filter(value == "Checked") %>%
+          pull(year_chr) %>%
+          str_remove(., "year_chr___")
 
-          for (year in years) {
-            chr_data <- extract_chr_data(year, dir)
-            if (year %in% compiled_data$year_measure) {
-              compiled_data <- compiled_data %>%
-                left_join(chr_data %>% mutate(year_measure = year), by = join_by(year_measure, GEOID))
-            } else {
-              compiled_data <- compiled_data %>%
-                bind_rows(counties_data %>%
-                            mutate(year_measure = as.numeric(year)) %>%
-                            left_join(chr_data, by = join_by(GEOID)))
-            }
+        for (year in years) {
+          chr_data <- extract_chr_data(year, dir)
+          if (year %in% compiled_data$year_measure) {
+            compiled_data <- compiled_data %>%
+              left_join(chr_data %>% mutate(year_measure = year), by = join_by(year_measure, GEOID))
+          } else {
+            compiled_data <- compiled_data %>%
+              bind_rows(counties_data %>%
+                          mutate(year_measure = as.numeric(year)) %>%
+                          left_join(chr_data, by = join_by(GEOID)))
           }
         }
-
-        if(request$data_sources___ahrf == "Checked") {
-          years <- request %>%
-            select(starts_with("year_ahrf___")) %>%
-            pivot_longer(cols = everything(),
-                         names_to = "year_ahrf",
-                         values_to = "value") %>%
-            filter(value == "Checked") %>%
-            pull(year_ahrf) %>%
-            str_remove(., "year_ahrf___")
-
-          for (year in years) {
-            ahrf_data <- extract_ahrf_data(year, dir)
-            year_simple <- year %>% str_sub(-4)
-            if (year_simple %in% compiled_data$year_measure) {
-              compiled_data <- compiled_data %>%
-                left_join(ahrf_data %>% mutate(year_measure = year_simple), by = join_by(year_measure, GEOID))
-            } else {
-              compiled_data <- compiled_data %>%
-                bind_rows(counties_data %>%
-                            mutate(year_measure = as.numeric(year_simple)) %>%
-                            left_join(chr_data, by = join_by(GEOID)))
-            }
-          }
-        }
-
-        file_name <- sprintf("sdh-etl_compiled-data_%s_%s.csv",
-                             str_to_lower(inputs$last_name),
-                             Sys.Date())
-
-        file_path <- file.path(dir, file_name)
-
-        write_csv(compiled_data, file_path)
-
-        return(
-          tibble(
-            title = inputs$title,
-            last_name = inputs$last_name,
-            email_address = inputs$email_address,
-            file_path = file_path
-          )
-        )
       }
 
-      message("Finished transforming data for request number ", get_record_id())
-    }, error = function(e) {
-      message("Error transforming data for request number ", get_record_id())
-    })
-  } else {
-    message("Request number ", get_record_id(), " is incomplete. Processing skipped.")
-  }
+      if(request$data_sources___ahrf == "Checked") {
+        years <- request %>%
+          select(starts_with("year_ahrf___")) %>%
+          pivot_longer(cols = everything(),
+                       names_to = "year_ahrf",
+                       values_to = "value") %>%
+          filter(value == "Checked") %>%
+          pull(year_ahrf) %>%
+          str_remove(., "year_ahrf___")
+
+        for (year in years) {
+          ahrf_data <- extract_ahrf_data(year, dir)
+          year_simple <- year %>% str_sub(-4)
+          if (year_simple %in% compiled_data$year_measure) {
+            compiled_data <- compiled_data %>%
+              left_join(ahrf_data %>% mutate(year_measure = year_simple), by = join_by(year_measure, GEOID))
+          } else {
+            compiled_data <- compiled_data %>%
+              bind_rows(counties_data %>%
+                          mutate(year_measure = as.numeric(year_simple)) %>%
+                          left_join(chr_data, by = join_by(GEOID)))
+          }
+        }
+      }
+
+      file_name <- sprintf("sdh-etl_compiled-data_%s_%s.csv",
+                           str_to_lower(inputs$last_name),
+                           Sys.Date())
+
+      file_path <- file.path(dir, file_name)
+
+      write_csv(compiled_data, file_path)
+
+      return(file_path)
+    }
+
+    message("Finished transforming data for request number ", get_record_id())
+  }, error = function(e) {
+    message("Error transforming data for request number ", get_record_id())
+  })
 }
 
 load_data <- function(dir, request)
