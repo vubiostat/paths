@@ -78,8 +78,8 @@ download_tiger_files <- function(year, dir)
     year)
 
   response <-
-    request(url) |>
-    req_retry(max_tries = 5, retry_on_failure = TRUE) |>
+    request(url)             |>
+    req_retry(max_tries = 5) |>
     req_perform(file.path(dir, "counties.zip"))
 
   response <- GET(url, write_disk(zip_file, overwrite = TRUE))
@@ -126,8 +126,8 @@ extract_chr_data <- function(year, dir)
   for (url in url_patterns)
   {
     response <-
-      request(url)                                      |>
-      req_retry(max_tries = 5, retry_on_failure = TRUE) |>
+      request(url)             |>
+      req_retry(max_tries = 5) |>
       req_perform(csv_file)
 
     if (resp_status(response) == 200)
@@ -164,8 +164,8 @@ extract_ahrf_data <- function(year, dir)
   for (url in url_patterns)
   {
     response <-
-      request(url)                                      |>
-      req_retry(max_tries = 5, retry_on_failure = TRUE) |>
+      request(url)             |>
+      req_retry(max_tries = 5) |>
       req_perform(zip_file)
 
     if (resp_status(response) == 200)
