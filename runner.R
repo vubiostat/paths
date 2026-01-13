@@ -58,6 +58,7 @@ get_record_id <- function()
 }
 
 request   <- exportRecordsTyped(rcon, records=get_record_id())
+request$year_vintage <- as.character(request$year_vintage)
 
 if(request$sdh_etl_complete != 'Complete')
 {
@@ -74,15 +75,14 @@ download_tiger_files <- function(year, dir)
 {
   logM("Downloading ", year, " TIGER/Line shapefiles.")
   url      <- sprintf(
-    "https://www2.census.gov/geo/tiger/TIGER%1$s/COUNTY/tl_%1$s_us_county.zip",
-    year)
+    "https://www2.census.gov/geo/tiger/TIGER%1$s/COUNTY/%1$s/tl_%1$s_us_county%2$s.zip",
+    year, substr(year, 3,4))
 
   response <-
     request(url)             |>
     req_retry(max_tries = 5) |>
     req_perform(file.path(dir, "counties.zip"))
 
-  response <- GET(url, write_disk(zip_file, overwrite = TRUE))
   if (resp_status(response) == 200)
   {
     logM(year, " TIGER/Line shapefiles downloaded.")
@@ -198,7 +198,7 @@ transform_data <- function(request, dir)
 {
   tryCatch({
     if (request$admin_unit == "County or equivalent") {
-      counties_data <- extract_counties(request$year_vintage) |>
+      counties_data <- extract_counties(request$year_vintage, dir) |>
         mutate(year_vintage = request$year_vintage, year_measure = NA_integer_) |>
         relocate(year_vintage, year_measure, .before = 1)
       compiled_data <- counties_data |> filter(!is.na(year_measure))
@@ -312,6 +312,7 @@ This email was sent automatically. For any issues or queries, please contact Jus
 #
 dir <- tempfile(pattern="paths_")
 if(!dir.create(dir)) logStop("Unable to create directory", dir)
+on.exit(unlink(dir, recursive=TRUE))
 final <- transform_data(dir, request)
 create_email(request, final)
-unlink(dir, recursive=TRUE)
+
