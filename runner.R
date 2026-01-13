@@ -216,7 +216,7 @@ extract_ahrf_data <- function(year, dir)
 #
 # Transform data into downloadable csv file
 #
-transform_data <- function(dir)
+transform_data <- function(request, dir)
 {
   tryCatch({
     if (request$admin_unit == "County or equivalent") {
@@ -275,7 +275,7 @@ transform_data <- function(dir)
       }
 
       file_name <- sprintf("sdh-etl_compiled-data_%s_%s.csv",
-                           str_to_lower(inputs$last_name),
+                           str_to_lower(request$last_name),
                            Sys.Date())
 
       file_path <- file.path(dir, file_name)
@@ -285,9 +285,9 @@ transform_data <- function(dir)
       return(file_path)
     }
 
-    message("Finished transforming data for request number ", get_record_id())
+    logM("Finished transforming data for request number ", request$record)
   }, error = function(e) {
-    message("Error transforming data for request number ", get_record_id())
+    logStop("Error transforming data for request number ", request$record)
   })
 }
 
