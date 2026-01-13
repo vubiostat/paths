@@ -343,7 +343,8 @@ This email was sent automatically. For any issues or queries, please contact Jus
 # Main loop, load the data and create the email
 #
 
-dir <- tempdir()
+dir <- tempfile(pattern="paths_")
+if(!dir.create(dir)) logStop("Unable to create directory", dir)
 load_data(dir, request)
 create_email(request, dir)
 unlink(dir)
