@@ -78,10 +78,11 @@ download_tiger_files <- function(year, dir)
     "https://www2.census.gov/geo/tiger/TIGER%1$s/COUNTY/%1$s/tl_%1$s_us_county%2$s.zip",
     year, substr(year, 3,4))
 
+  zip_file <- file.path(dir, "counties.zip")
   response <-
     request(url)             |>
     req_retry(max_tries = 5) |>
-    req_perform(file.path(dir, "counties.zip"))
+    req_perform(zip_file)
 
   if (resp_status(response) == 200)
   {
@@ -97,20 +98,32 @@ process_tiger_files <- function(dir)
 {
   logM("Attempting to extract county-level identifiers...")
   shp_file <- list.files(dir, pattern = "\\.shp$", full.names = TRUE)
-  counties <- st_read(shp_file) |>
-    select(GEOID, STATEFP, COUNTYFP, NAME, NAMELSAD) |>
+
+  counties <- if(year == 2010)
+  {
+    st_read(shp_file) |>
+    select(GEOID10, STATEFP10, COUNTYFP10, NAME10, NAMELSAD10) |>
     st_drop_geometry()
+
+  } else
+  {
+    st_read(shp_file) |>
+    select(GEOID00, STATEFP00, COUNTYFP00, NAME00, NAMELSAD00) |>
+    st_drop_geometry()
+  }
+
+  names(counties) <- c("GEOID", "STATEFP", "COUNTY", "NAME", "NAMELSAD")
   logM("County-level identifiers extracted.")
   counties
 }
 
 extract_counties <- function(year, dir)
 {
-  download_tiger_files(year, dir)
-  counties <- process_tiger_files(dir)
-  unlink(dir, recursive = FALSE)
-
-  counties
+  ldir <- file.path(dir, 'counties')
+  dir.create(ldir, showWarnings=FALSE)
+  on.exit(unlink(ldir, recursive=TRUE))
+  download_tiger_files(year, ldir)
+  process_tiger_files(ldir)
 }
 
 extract_chr_data <- function(year, dir)
