@@ -1,7 +1,7 @@
 
 # Suppress Output when loading libraries
 
-library <- function(...) suppressPackageStartupMessage(library(...))
+# library <- function(...) suppressPackageStartupMessages(library(...))
 
 # Data Manipulation
 library(tidyverse)
@@ -33,6 +33,8 @@ library(knitr)   # Format an html email
 #
 # TO RUN LOCALLY, triggers are received to script in JSON
 # Sys.setenv(REDCAP_DATA_TRIGGER='{"record":"2","project_id":"123456","instrument":"demographics","instrument_complete":"2"}')
+
+# Sys.setenv(REDCAP_DATA_TRIGGER='{"record":"2","project_id":"223502","instrument":"SDH ETL","instrument_complete":"2"}')
 ################################################################################
 
 # Helper function
@@ -190,7 +192,7 @@ extract_ahrf_data <- function(year, dir)
 #   parsed_trigger <- httr::parse_url(url_format)$query
 #   return(parsed_trigger)
 # }
-#
+# 
 # fetch_inputs <- function(redcap_url, project_id, record) {
 #   message("Fetching user inputs from REDCap...")
 #   api_token <- Sys.getenv(paste0("api_key_", project_id))
@@ -207,21 +209,22 @@ extract_ahrf_data <- function(year, dir)
 #
 # Transform data into downloadable csv file
 #
-transform_data <- function(parsed_trigger, dir)
+transform_data <- function(dir)
 {
-  if (parsed_trigger$sdh_etl_complete == "2") {
-    inputs <- fetch_inputs(redcap_url = paste0(parsed_trigger$redcap_url, "api/"),
-                           project_id = parsed_trigger$project_id,
-                           record = parsed_trigger$record)
+  if (request$sdh_etl_complete == "Complete") {
+    # inputs <- fetch_inputs(redcap_url = paste0(parsed_trigger$redcap_url, "api/"),
+    #                        project_id = parsed_trigger$project_id,
+    #                        record = parsed_trigger$record)
+    
     tryCatch({
-      if (inputs$admin_unit == "County or equivalent") {
-        counties_data <- extract_counties(inputs$year_vintage) %>%
-          mutate(year_vintage = inputs$year_vintage, year_measure = NA_integer_) %>%
+      if (request$admin_unit == "County or equivalent") {
+        counties_data <- extract_counties(request$year_vintage) %>%
+          mutate(year_vintage = request$year_vintage, year_measure = NA_integer_) %>%
           relocate(year_vintage, year_measure, .before = 1)
         compiled_data <- counties_data %>% filter(!is.na(year_measure))
 
-        if(inputs$data_sources___chr == "Checked") {
-          years <- inputs %>%
+        if(request$data_sources___chr == "Checked") {
+          years <- request %>%
             select(starts_with("year_chr___")) %>%
             pivot_longer(cols = everything(),
                          names_to = "year_chr",
@@ -244,8 +247,8 @@ transform_data <- function(parsed_trigger, dir)
           }
         }
 
-        if(inputs$data_sources___ahrf == "Checked") {
-          years <- inputs %>%
+        if(request$data_sources___ahrf == "Checked") {
+          years <- request %>%
             select(starts_with("year_ahrf___")) %>%
             pivot_longer(cols = everything(),
                          names_to = "year_ahrf",
@@ -287,12 +290,12 @@ transform_data <- function(parsed_trigger, dir)
         )
       }
 
-      message("Finished transforming data for request number ", parsed_trigger$record)
+      message("Finished transforming data for request number ", get_record_id())
     }, error = function(e) {
-      message("Error transforming data for request number ", parsed_trigger$record)
+      message("Error transforming data for request number ", get_record_id())
     })
   } else {
-    message("Request number ", parsed_trigger$record, " is incomplete. Processing skipped.")
+    message("Request number ", get_record_id(), " is incomplete. Processing skipped.")
   }
 }
 
