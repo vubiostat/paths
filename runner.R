@@ -315,10 +315,9 @@ This email was sent automatically. For any issues or queries, please contact Jus
     text(body)                       |>
     attachment(
       file_path,
-      type="application/zip")        |>
-    as.character()                   |>
-    cat()
+      type="application/zip")
 }
+
 
   ##############################################################################
  #
@@ -329,5 +328,16 @@ dir <- tempfile(pattern="paths_")
 if(!dir.create(dir, showWarnings=FALSE)) logStop("Unable to create directory", dir)
 on.exit(unlink(dir, recursive=TRUE))
 final <- transform_data(dir, request)
-create_email(request, final)
+message <- create_email(request, final)
 
+smtp_server <- Sys.getenv('SMTP_SERVER', '')
+if (nchar(smtp_server) > 0) {
+  logM("Sending email")
+  send_email <- emayili::server(smtp_server)
+  request <- tryCatch(
+    send_email(message),
+    error = function(e) logM(e)
+  )
+} else {
+  cat(as.character(message))
+}
