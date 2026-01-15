@@ -47,7 +47,7 @@ unlockREDCap(c(rcon  = 'paths_data_builder'),
              envir   = 1,
              url     = 'https://redcap.vumc.org/api/')
 
-get_record_id <- function()
+get_record_id <- function() 
 {
   logM("Unpacking request from JSON")
   request <- tryCatch(
@@ -226,7 +226,7 @@ transform_data <- function(request, dir)
                        values_to = "value") |>
           filter(value == "Checked") |>
           pull(year_chr) |>
-          str_remove(., "year_chr___")
+          str_remove("year_chr___")
 
         for (year in years) {
           chr_data <- extract_chr_data(year, dir)
@@ -294,7 +294,7 @@ transform_data <- function(request, dir)
 # FIXME: Include selections
 #   <p>Selections:</p>
 #<p><ul><li>Administrative unit:</li><li>Vintage year:</li><li>Health indicators:</li></ul></p>
-create_email <- function(request, file_path)
+create_email <- function() # prod args: request, file_path
 {
   body <-
     "# Health Indicators for HIV/AIDS Research
@@ -304,30 +304,31 @@ Dear, %s %s,
 Your requested dataset has been successfully compiled and is attached to this email.
 
 This email was sent automatically. For any issues or queries, please contact Justin Amarin [<justin.amarin@vumc.org>](mailto:justin.amarin@vumc.org).
-"                                             |>
-    sprintf(request$title, request$last_name) |>
-    knit2html(text = _)
-
-  envelope()                         |>
-    from("noreply@vumc.org")         |>
-    to(request$email)                |>
-    subject("PATHS Dataset Request") |>
-    text(body)                       |>
-    attachment(
-      file_path,
-      type="application/zip")        |>
-    as.character()                   |>
-    cat()
+"                                             # |>
+#     sprintf(request$title, request$last_name) |>
+#     knit2html(text = _)
+# 
+#   envelope()                         |>
+#     from("noreply@vumc.org")         |>
+#     to(request$email)                |>
+#     subject("PATHS Dataset Request") |>
+#     text(body)                       |>
+#     attachment(
+#       file_path,
+#       type="application/zip")        |>
+#     as.character()                   |>
+#     cat()
 }
 
   ##############################################################################
  #
 #
 # Main loop, load the data and create the email
-#
-dir <- tempfile(pattern="paths_")
-if(!dir.create(dir, showWarnings=FALSE)) logStop("Unable to create directory", dir)
-on.exit(unlink(dir, recursive=TRUE))
-final <- transform_data(dir, request)
-create_email(request, final)
+
+# FIXME: Use dir and final in production
+# dir <- tempfile(pattern="paths_")
+# if(!dir.create(dir, showWarnings=FALSE)) logStop("Unable to create directory", dir)
+# on.exit(unlink(dir, recursive=TRUE))
+# final <- transform_data(dir, request)
+create_email() # prod args:  request, final
 
