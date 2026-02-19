@@ -312,7 +312,7 @@ This email was sent automatically. For any issues or queries, please contact Jus
     from("noreply@vumc.org")         |>
     to(request$email)                |>
     subject("PATHS Dataset Request") |>
-    text(body)                       |>
+    html(body)                       |>
     attachment(
       file_path,
       type="application/zip")
