@@ -27,6 +27,8 @@ library(httr2)   # httr2 has exponential backoff
 library(emayili) # RDCOMClient is Windows only
 library(knitr)   # Format an html email
 
+DATA_DIR = "./data/"
+
   ##############################################################################
  #
 #
@@ -117,11 +119,12 @@ requested_data <- extract_data(dir, request)
   data <- data.frame(a = 1:3, b=4:6)
 
   # Savannah Fill this in HERE
+  # Use DATA_DIR to find data
 
   # Lot's of data selecting/mangling
 
   filename <- file.path(dir, 'tn-paths.csv.zip')
-  write_csv_zip(file.path(filename))
+  write_csv_zip(file.path(data, filename))
   filename
 }
 
