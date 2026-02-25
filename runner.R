@@ -124,7 +124,7 @@ write_csv_zip <- function(data, filename)
   unlink(tmp_csv)
 }
 
-requested_data <- extract_data(dir, request)
+requested_data <- function(dir, request)
 {
   data <- data.frame(a = 1:3, b=4:6)
 
