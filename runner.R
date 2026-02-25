@@ -42,6 +42,7 @@ request <- tryCatch(
   error = function(e) logStop(e)
 )
 
+# FIXME: The State of a request needs a proper lifecyle
 if(request$instrument_complete != 2)
 {
   logM("Request number ", request$request_number, " is incomplete. Processing skipped.")
