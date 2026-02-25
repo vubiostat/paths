@@ -44,6 +44,8 @@ unlockREDCap(c(rcon  = 'paths_data_builder'),
              envir   = 1,
              url     = 'https://redcap.vumc.org/api/')
 
+logMessage("Opened Connection to REDCap pid=", rcon$projectInformation()$project_id)
+
 get_record_id <- function()
 {
   logMessage("Unpacking request from JSON")
@@ -51,8 +53,11 @@ get_record_id <- function()
     fromJSON(Sys.getenv('REDCAP_DATA_TRIGGER', '')),
     error = function(e) logStop(e)
   )
+  logMessage("Received JSON", request)
   request$record
 }
+
+logMessage("Requesting record", get_record_id())
 
 request   <- exportRecordsTyped(rcon, records=get_record_id())
 request$year_vintage <- as.character(request$year_vintage)
