@@ -168,7 +168,7 @@ result <- reduce(combined, \(a, b) full_join(a, b, by = c("fips", "YEAR")))
 requested_data <- function(dir, request)
 {
   vintage <- load_tgr(request$year_vintage)
-  data    <- inner_join(result, vintage, by='fips')
+  data    <- left_join(result, vintage, by='fips')
 
   write_csv_zip(data, dir, file.path(dir, 'tn-paths.csv.zip'))
 }
