@@ -125,12 +125,25 @@ write_csv_zip <- function(data, dir, filename)
   filename
 }
 
+read_vintage <- function(year)
+{
+  v_file <- paste0('tgr_',year,'.csv')
+
+  con <- unz(file.path(DATA_DIR, paste0(v_file, ".zip")), v_file)
+
+  df <- read.csv(con)
+
+  close(con)
+}
+
 requested_data <- function(dir, request)
 {
-  data <- data.frame(a = 1:3, b=4:6)
+  vintage <- read_vintage(request$year_vintage)
 
   # Savannah Fill this in HERE
   # Use DATA_DIR to find data
+
+  data <- vintage # FIXME Just stubbed for now to vintage
 
   # Lot's of data selecting/mangling
 
