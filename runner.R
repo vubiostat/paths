@@ -52,7 +52,7 @@ unlockREDCap(c(rcon  = 'paths_data_builder'),
 
 logM("Opened Connection to REDCap pid=", rcon$projectInformation()$project_id)
 
-logM("JSON Request", Sys.getenv('REDCAP_DATA_TRIGGER', ''))
+logM("JSON Request ", Sys.getenv('REDCAP_DATA_TRIGGER', ''))
 
 logM("Unpacking request from JSON")
 request <- tryCatch(
@@ -60,18 +60,18 @@ request <- tryCatch(
   error = function(e) logStop(e)
 )
 
-logM("Received parsed JSON", request)
-
-logM("Requesting record", request$record)
-
-request   <- exportRecordsTyped(rcon, records=request$record)
-request$year_vintage <- as.character(request$year_vintage)
+logM("Received parsed JSON ", request)
 
 if(request$instrument_complete != 2)
 {
   logM("Request number ", request$request_number, " is incomplete. Processing skipped.")
   quit(save="no")
 }
+
+logM("Requesting record", request$record)
+
+request   <- exportRecordsTyped(rcon, records=request$record)
+request$year_vintage <- as.character(request$year_vintage)
 
   ##############################################################################
  #
