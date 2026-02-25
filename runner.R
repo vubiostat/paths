@@ -117,7 +117,8 @@ write_csv_zip <- function(data, dir, filename)
   zip(
     zipfile = filename,
     files   = tmp_csv,
-    flags   = "-j"   # junk paths (store only filename)
+    flags   = "-j", # junk paths (store only filename)
+    extras  = "-q"  # quiet nothing to STDOUT
   )
 
   unlink(tmp_csv)
@@ -137,14 +138,45 @@ load_data <- function(prefix, year)
   })
 }
 
-load_vintage <- function(year) load_data('tgr_', year)
-load_svi     <- function(year) load_data('svi_', year)
-load_chr     <- function(year) load_data('chr_', year)
-load_clh     <- function(year) load_data('clh_', year)
+load_tgr <- function(year) load_data('tgr_', year)
+
+loaders <- list(
+  svi = function(year) load_data('svi_', year),
+  clh = function(year) load_data('clh_', year),
+  chr = function(year) load_data('clh_', year)
+)
+
+raw_data <- Reduce(
+  function(acc, nm)
+  {
+    parts <-
+      regmatches(
+        nm,
+        regexec("^year_([a-z]+)___([0-9]{4})$", nm)
+      )[[1]]
+
+    src  <- parts[2]
+    yr   <- parts[3]
+
+    if (is.null(acc[[src]]))
+    {
+      acc[[src]] <- list()
+    }
+
+    acc[[src]][[yr]] <- loaders[[src]](as.integer(yr))
+
+    acc
+  },
+  names(request)[
+    grepl("^year_[a-z]+___[0-9]{4}$", names(request)) &
+      request == "Checked"
+  ],
+  init = list()
+)
 
 requested_data <- function(dir, request)
 {
-  vintage <- load_vintage(request$year_vintage)
+  vintage <- load_tgr(request$year_vintage)
 
   # Savannah Fill this in HERE
   # Use DATA_DIR to find data
