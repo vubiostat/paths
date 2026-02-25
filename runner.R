@@ -3,13 +3,13 @@
 
 library <- function(...) suppressPackageStartupMessages(base::library(...))
 
-# Data Manipulation
-library(tidyverse)
-library(lubridate)
-
 # Pull from REDCap
 library(redcapAPI) # Read request from REDCap
 library(jsonlite)   # Read environment of request
+
+library(purrr)
+library(dplyr)
+
 
 # These should no longer be required
 # Pulls from Other Sources
@@ -174,14 +174,21 @@ raw_data <- Reduce(
   init = list()
 )
 
+# Step 1 & 2: Add YEAR column and rbind within each top-level key
+combined <- imap(raw_data, \(years, source_name)
+{
+  imap(years, \(df, year) mutate(df, YEAR = as.integer(year))) |>
+    bind_rows()
+})
+
+# Step 3: Full join all three data.frames by 'fips' and 'YEAR'
+result <- reduce(combined, \(a, b) full_join(a, b, by = c("fips", "YEAR")))
+
 requested_data <- function(dir, request)
 {
   vintage <- load_tgr(request$year_vintage)
 
-  # Savannah Fill this in HERE
-  # Use DATA_DIR to find data
-
-  data <- vintage # FIXME Just stubbed for now to vintage
+  data <- inner_join(result, vintage, by='fips')
 
   # Lot's of data selecting/mangling
 
