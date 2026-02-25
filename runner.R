@@ -125,20 +125,26 @@ write_csv_zip <- function(data, dir, filename)
   filename
 }
 
-read_vintage <- function(year)
+load_data <- function(prefix, year)
 {
-  v_file <- paste0('tgr_',year,'.csv')
+  tryCatch({
+    v_file <- paste0(prefix,year,'.csv')
 
-  con <- unz(file.path(DATA_DIR, paste0(v_file, ".zip")), v_file)
-
-  df <- read.csv(con)
-
-  close(con)
+    read.csv(unz(file.path(DATA_DIR, paste0(v_file, ".zip")), v_file))
+  }, error=function(e)
+  {
+    logStop("Unable to load data for '", prefix, year, ".csv.zip'\n", e)
+  })
 }
+
+load_vintage <- function(year) load_data('tgr_', year)
+load_svi     <- function(year) load_data('svi_', year)
+load_chr     <- function(year) load_data('chr_', year)
+load_clh     <- function(year) load_data('clh_', year)
 
 requested_data <- function(dir, request)
 {
-  vintage <- read_vintage(request$year_vintage)
+  vintage <- load_vintage(request$year_vintage)
 
   # Savannah Fill this in HERE
   # Use DATA_DIR to find data
