@@ -60,16 +60,14 @@ request <- tryCatch(
   error = function(e) logStop(e)
 )
 
-logM("Received JSON", request)
+logM("Received parsed JSON", request)
 
-get_record_id <- function() request$record
+logM("Requesting record", request$record)
 
-logM("Requesting record", get_record_id())
-
-request   <- exportRecordsTyped(rcon, records=get_record_id())
+request   <- exportRecordsTyped(rcon, records=request$record)
 request$year_vintage <- as.character(request$year_vintage)
 
-if(request$instrument_complete != 'Complete')
+if(request$instrument_complete != 2)
 {
   logM("Request number ", request$request_number, " is incomplete. Processing skipped.")
   quit(save="no")
