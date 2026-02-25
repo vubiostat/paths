@@ -59,7 +59,6 @@ request <- tryCatch(
   fromJSON(Sys.getenv('REDCAP_DATA_TRIGGER', '')),
   error = function(e) logStop(e)
 )
-request <- request$attributes
 
 logM("Received JSON", request)
 
