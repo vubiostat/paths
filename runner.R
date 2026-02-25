@@ -32,7 +32,7 @@ DATA_DIR = "./data/"
 logM <- function(...)
 {
   logEvent("INFO", call=.callFromPackage('redcapAPI'), message=paste(...))
-#  message(...)  # Comment this out for production use, i.e. no message output except final email
+  message(...)  # Comment this out for production use, i.e. no message output except final email
 }
 
   ##############################################################################
