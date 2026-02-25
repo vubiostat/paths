@@ -29,6 +29,12 @@ library(knitr)   # Format an html email
 
 DATA_DIR = "./data/"
 
+logM <- function(...)
+{
+  logEvent("INFO", call=.callFromPackage('redcapAPI'), message=paste(...))
+#  message(...)  # Comment this out for production use, i.e. no message output except final email
+}
+
   ##############################################################################
  #
 #
@@ -44,27 +50,28 @@ unlockREDCap(c(rcon  = 'paths_data_builder'),
              envir   = 1,
              url     = 'https://redcap.vumc.org/api/')
 
-logMessage("Opened Connection to REDCap pid=", rcon$projectInformation()$project_id)
+logM("Opened Connection to REDCap pid=", rcon$projectInformation()$project_id)
 
-get_record_id <- function()
-{
-  logMessage("Unpacking request from JSON")
-  request <- tryCatch(
-    fromJSON(Sys.getenv('REDCAP_DATA_TRIGGER', '')),
-    error = function(e) logStop(e)
-  )
-  logMessage("Received JSON", request)
-  request$record
-}
+logM("JSON Request", Sys.getenv('REDCAP_DATA_TRIGGER', ''))
 
-logMessage("Requesting record", get_record_id())
+logM("Unpacking request from JSON")
+request <- tryCatch(
+  fromJSON(Sys.getenv('REDCAP_DATA_TRIGGER', '')),
+  error = function(e) logStop(e)
+)
+
+logM("Received JSON", request)
+
+get_record_id <- function() request$record
+
+logM("Requesting record", get_record_id())
 
 request   <- exportRecordsTyped(rcon, records=get_record_id())
 request$year_vintage <- as.character(request$year_vintage)
 
-if(request$sdh_etl_complete != 'Complete')
+if(request$instrument_complete != 'Complete')
 {
-  logMessage("Request number ", request$request_number, " is incomplete. Processing skipped.")
+  logM("Request number ", request$request_number, " is incomplete. Processing skipped.")
   quit(save="no")
 }
 
@@ -148,7 +155,7 @@ message     <- create_email(request, final)
 smtp_server <- Sys.getenv('SMTP_SERVER', '')
 if (nchar(smtp_server) > 0)
 {
-  logMessage("Sending email")
+  logM("Sending email")
   smtp <- emayili::server(smtp_server)
   request <- tryCatch(
     smtp(message),
