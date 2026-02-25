@@ -32,7 +32,7 @@ DATA_DIR = "./data/"
 logM <- function(...)
 {
   logEvent("INFO", call=.callFromPackage('redcapAPI'), message=paste(...))
-  message(...)  # Comment this out for production use, i.e. no message output except final email
+#  message(...)  # Comment this out for production use, i.e. no message output except final email
 }
 
   ##############################################################################
@@ -52,15 +52,15 @@ unlockREDCap(c(rcon  = 'paths_data_builder'),
 
 logM("Opened Connection to REDCap pid=", rcon$projectInformation()$project_id)
 
-logM("JSON Request ", Sys.getenv('REDCAP_DATA_TRIGGER', ''))
+# logM("JSON Request ", Sys.getenv('REDCAP_DATA_TRIGGER', ''))
 
-logM("Unpacking request from JSON")
+# logM("Unpacking request from JSON")
 request <- tryCatch(
   fromJSON(Sys.getenv('REDCAP_DATA_TRIGGER', '')),
   error = function(e) logStop(e)
 )
 
-logM("Received parsed JSON ", request)
+# logM("Received parsed JSON ", request)
 
 if(request$instrument_complete != 2)
 {
@@ -106,10 +106,9 @@ This email was sent automatically. For any issues or queries, please contact Jus
       type="application/zip")
 }
 
-write_csv_zip <- function(data, filename)
+write_csv_zip <- function(data, dir, filename)
 {
-  # create temporary csv file
-  tmp_csv <- tempfile(fileext = ".csv")
+  tmp_csv <- file.path(dir, 'tn-paths.csv')
 
   # write data frame
   write.csv(data, tmp_csv, row.names = FALSE)
@@ -122,6 +121,8 @@ write_csv_zip <- function(data, filename)
   )
 
   unlink(tmp_csv)
+
+  filename
 }
 
 requested_data <- function(dir, request)
@@ -133,9 +134,7 @@ requested_data <- function(dir, request)
 
   # Lot's of data selecting/mangling
 
-  filename <- file.path(dir, 'tn-paths.csv.zip')
-  write_csv_zip(file.path(data, filename))
-  filename
+  write_csv_zip(data, dir, file.path(dir, 'tn-paths.csv.zip'))
 }
 
   ##############################################################################
