@@ -3,29 +3,15 @@
 
 library <- function(...) suppressPackageStartupMessages(base::library(...))
 
-# Pull from REDCap
 library(redcapAPI) # Read request from REDCap
-library(jsonlite)   # Read environment of request
+library(jsonlite)  # Read environment of request
 
-library(purrr)
-library(dplyr)
-
-
-# These should no longer be required
-# Pulls from Other Sources
-# library(sf)    # WARNING sysadmin: spatial processing package, big install
-#                # Requires libudunits2-dev libgdal-dev libgeos-dev libproj-dev
-#                # Requires packages units, wk, s2
-#                # CRAN units has compile issues with later compilers and had to be
-#                # installed from remotes::install_github("r-quantities/units")
-# library(readxl)  # For Excel reading/writing
-# library(haven)   # FOR SPSS, Stata and SAS importation
-
-library(httr2)   # httr2 has exponential backoff
+library(purrr)     # Data transformation
+library(dplyr)     # Data transformation
 
 # Email prep
-library(emayili) # RDCOMClient is Windows only
-library(knitr)   # Format an html email
+library(emayili)   # RDCOMClient is Windows only
+library(knitr)     # Format an html email
 
 DATA_DIR = "./data/"
 
@@ -44,7 +30,6 @@ logM <- function(...)
 # Sys.setenv(REDCAP_DATA_TRIGGER='{"record":"2","project_id":"223502","instrument":"SDH ETL","instrument_complete":"2"}')
 ################################################################################
 
-
 unlockREDCap(c(rcon  = 'paths_data_builder'),
              keyring = 'API_KEYs',
              envir   = 1,
@@ -52,15 +37,10 @@ unlockREDCap(c(rcon  = 'paths_data_builder'),
 
 logM("Opened Connection to REDCap pid=", rcon$projectInformation()$project_id)
 
-# logM("JSON Request ", Sys.getenv('REDCAP_DATA_TRIGGER', ''))
-
-# logM("Unpacking request from JSON")
 request <- tryCatch(
   fromJSON(Sys.getenv('REDCAP_DATA_TRIGGER', '')),
   error = function(e) logStop(e)
 )
-
-# logM("Received parsed JSON ", request)
 
 if(request$instrument_complete != 2)
 {
@@ -174,23 +154,20 @@ raw_data <- Reduce(
   init = list()
 )
 
-# Step 1 & 2: Add YEAR column and rbind within each top-level key
+# Add YEAR column and rbind within each top-level key
 combined <- imap(raw_data, \(years, source_name)
 {
   imap(years, \(df, year) mutate(df, YEAR = as.integer(year))) |>
     bind_rows()
 })
 
-# Step 3: Full join all three data.frames by 'fips' and 'YEAR'
+# Full join all three data.frames by 'fips' and 'YEAR'
 result <- reduce(combined, \(a, b) full_join(a, b, by = c("fips", "YEAR")))
 
 requested_data <- function(dir, request)
 {
   vintage <- load_tgr(request$year_vintage)
-
-  data <- inner_join(result, vintage, by='fips')
-
-  # Lot's of data selecting/mangling
+  data    <- inner_join(result, vintage, by='fips')
 
   write_csv_zip(data, dir, file.path(dir, 'tn-paths.csv.zip'))
 }
