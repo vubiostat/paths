@@ -112,7 +112,8 @@ load_data <- function(prefix, year)
   tryCatch({
     v_file <- paste0(prefix,year,'.csv')
 
-    read.csv(unz(file.path(DATA_DIR, paste0(v_file, ".zip")), v_file))
+    read.csv(unz(file.path(DATA_DIR, paste0(v_file, ".zip")), v_file),
+             colClasses="character")
   }, error=function(e)
   {
     logStop("Unable to load data for '", prefix, year, ".csv.zip'\n", e)
@@ -139,10 +140,7 @@ raw_data <- Reduce(
     src  <- parts[2]
     yr   <- parts[3]
 
-    if (is.null(acc[[src]]))
-    {
-      acc[[src]] <- list()
-    }
+    if (is.null(acc[[src]])) acc[[src]] <- list()
 
     acc[[src]][[yr]] <- loaders[[src]](as.integer(yr))
 
