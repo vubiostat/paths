@@ -109,7 +109,7 @@ write_csv_zip <- function(data, dir, filename)
 
 load_data <- function(prefix, year)
 {
-  tryCatch({
+  result <- tryCatch({
     v_file <- paste0(prefix,year,'.csv')
 
     read.csv(unz(file.path(DATA_DIR, paste0(v_file, ".zip")), v_file),
@@ -118,9 +118,15 @@ load_data <- function(prefix, year)
   {
     logStop("Unable to load data for '", prefix, year, ".csv.zip'\n", e)
   })
+
+  nm      <- names(result)
+  not_key <- nm != 'fips'
+  names(result)[not_key] <- paste0(prefix, names(result)[not_key])
+
+  result
 }
 
-load_tgr <- function(year) load_data('tgr_', year)
+load_tgr <- function(year) load_data('tgr_', year)[,'fips', drop=FALSE]
 
 loaders <- list(
   svi = function(year) load_data('svi_', year),
@@ -153,20 +159,20 @@ raw_data <- Reduce(
   init = list()
 )
 
-# Add YEAR column and rbind within each top-level key
+# Add year column and rbind within each top-level key
 combined <- imap(raw_data, \(years, source_name)
 {
-  imap(years, \(df, year) mutate(df, YEAR = as.integer(year))) |>
+  imap(years, \(df, year) mutate(df, year = as.integer(year))) |>
     bind_rows()
 })
 
 # Full join all three data.frames by 'fips' and 'YEAR'
-result <- reduce(combined, \(a, b) full_join(a, b, by = c("fips", "YEAR")))
+result <- reduce(combined, \(a, b) full_join(a, b, by = c("fips", "year")))
 
 requested_data <- function(dir, request)
 {
   vintage <- load_tgr(request$year_vintage)
-  data    <- left_join(result, vintage, by='fips')
+  data    <- left_join(vintage, result, by='fips')
 
   write_csv_zip(data, dir, file.path(dir, 'tn-paths.csv.zip'))
 }
