@@ -27,7 +27,7 @@ logM <- function(...)
 # Parse request and startup
 #
 # TO RUN LOCALLY, triggers are received to script in JSON
-# Sys.setenv(REDCAP_DATA_TRIGGER='{"record":"2","project_id":"223502","instrument":"SDH ETL","instrument_complete":"2"}')
+# Sys.setenv(REDCAP_DATA_TRIGGER='{"record":"7","project_id":"223502","instrument":"SDH ETL","instrument_complete":"2"}')
 ################################################################################
 
 unlockREDCap(c(rcon  = 'paths_data_builder'),
@@ -131,7 +131,7 @@ load_tgr <- function(year) load_data('tgr_', year)[,'fips', drop=FALSE]
 loaders <- list(
   svi = function(year) load_data('svi_', year),
   clh = function(year) load_data('clh_', year),
-  chr = function(year) load_data('clh_', year)
+  chr = function(year) load_data('chr_', year)
 )
 
 raw_data <- Reduce(
