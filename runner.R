@@ -15,7 +15,7 @@
 
   ###########################################################################
  #
-# Statup (load libraries)
+# Startup (load libraries)
 
 # Suppress Output when loading libraries
 library <- function(...) suppressPackageStartupMessages(base::library(...))
