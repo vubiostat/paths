@@ -1,6 +1,9 @@
 # runner script for PATHS Project (Rebeiro)
 # PATHS => Public Access Tennessee Health Statistics
 
+# TO RUN LOCALLY, triggers are received to script in JSON
+# Sys.setenv(REDCAP_DATA_TRIGGER='{"record":"7","project_id":"223502","instrument":"SDH ETL","instrument_complete":"2"}')
+
 # Punch list to improve:
 
 # - Need to get a development server strategy as part of work flow.
@@ -28,9 +31,6 @@ library(emayili)   # RDCOMClient is Windows only
 library(knitr)     # Format an html email
 
 DATA_DIR = "./data/"
-
-# TO RUN LOCALLY, triggers are received to script in JSON
-# Sys.setenv(REDCAP_DATA_TRIGGER='{"record":"7","project_id":"223502","instrument":"SDH ETL","instrument_complete":"2"}')
 
   ##############################################################################
  #
